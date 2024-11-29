@@ -15,6 +15,9 @@
 #include "nav_msgs/msg/path.hpp"
 #include "px4_msgs/msg/trajectory_setpoint.hpp"
 
+// custom messages
+#include "dasc_msgs/msg/eware_mission_status.hpp"
+
 // rviz
 #include "rviz_common/panel.hpp"
 
@@ -51,9 +54,8 @@ public Q_SLOTS:
   void setTopic(const QString &topic);
 
 protected Q_SLOTS:
-
   void timer_callback();
-  void viz_timer_callback();
+  // void viz_timer_callback();
   void updateTopic();
 
 protected:
@@ -61,45 +63,51 @@ protected:
   QLineEdit *output_topic_editor_;
 
   // Radio Buttons
-  QRadioButton *traj_hover_button_;
-  QRadioButton *traj_lissa_button_;
-  QButtonGroup *traj_type_button_group_;
+  // QRadioButton *traj_hover_button_;
+  // QRadioButton *traj_lissa_button_;
+  // QButtonGroup *traj_type_button_group_;
 
-  QPushButton *set_hover_button_, *set_circle_button_,
-      *set_lissa_button_;
-  QPushButton *takeoff, *start, *hover, *stop;
+  // QPushButton *set_hover_button_, *set_circle_button_,
+  //     *set_lissa_button_;
+
+  QPushButton *start, *stop, *stay ;
 
   // LissaTable
-  QDoubleSpinBox *amplitude_x, *amplitude_y, *amplitude_z, *amplitude_yaw;
-  QDoubleSpinBox *freq_x, *freq_y, *freq_z, *freq_yaw;
-  QDoubleSpinBox *phi_x, *phi_y, *phi_z, *phi_yaw;
-  QDoubleSpinBox *offset_x, *offset_y, *offset_z, *offset_yaw;
+  // QDoubleSpinBox *amplitude_x, *amplitude_y, *amplitude_z, *amplitude_yaw;
+  // QDoubleSpinBox *freq_x, *freq_y, *freq_z, *freq_yaw;
+  // QDoubleSpinBox *phi_x, *phi_y, *phi_z, *phi_yaw;
+  // QDoubleSpinBox *offset_x, *offset_y, *offset_z, *offset_yaw;
 
   // name of the output topic;
   QString output_topic_;
 
   // ROS
   std::shared_ptr<rclcpp::Node> node_;
-  rclcpp::Publisher<px4_msgs::msg::TrajectorySetpoint>::SharedPtr
-      trajectory_setpoint_pub_;
-  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr vis_path_pub_;
+  // rclcpp::Publisher<px4_msgs::msg::TrajectorySetpoint>::SharedPtr
+  //     trajectory_setpoint_pub_;
+  // rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr vis_path_pub_;
+  rclcpp::Publisher<dasc_msgs::msg::EwareMissionStatus>::SharedPtr eware_mission_status_pub_;
 
-  enum Mode { STOPPED, TAKEOFF, STARTED, HOVER };
+  enum Mode {GROUNDED, STARTED, STOPPED};
+  // STOPPED: initiate landing if in offboard board
+  // STARTED: Start the mission
+  // HOVER: Keep the recent setpoint
 
-  Mode mode = STOPPED;
+  Mode mode = GROUNDED;
   // ded
 
-  px4_msgs::msg::TrajectorySetpoint msg;
-  Lissajous<double, 4> lissa;
+  // px4_msgs::msg::TrajectorySetpoint msg;
+  dasc_msgs::msg::EwareMissionStatus eware_mission_status_msg;
+  // Lissajous<double, 4> lissa;
 
-  uint64_t traj_start_time;
+  // uint64_t traj_start_time;
 
-  void update_lissa();
-  void visualize_trajectory();
+  // void update_lissa();
+  // void visualize_trajectory();
 
-  void set_traj_hover();
-  void set_traj_circle();
-  void set_traj_lissa();
+  // void set_traj_hover();
+  // void set_traj_circle();
+  // void set_traj_lissa();
 
 }; // class TrajectoryPanel
 

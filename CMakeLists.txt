@@ -25,6 +25,7 @@ find_package(rviz_rendering REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(px4_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(dasc_msgs REQUIRED)
 
 ## This setting causes Qt's "MOC" generation to happen automatically.
 set(CMAKE_AUTOMOC ON)
@@ -47,6 +48,7 @@ ament_target_dependencies(${PROJECT_NAME}
   "nav_msgs"
   "px4_msgs"
   "rclcpp"
+  "dasc_msgs"
   "rviz_common"
   "rviz_rendering"
   "tf2_geometry_msgs"
