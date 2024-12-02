@@ -10,12 +10,20 @@
 #include "rclcpp/wait_for_message.hpp"
 #include <tf2/LinearMath/Quaternion.h>
 
-// ros msgs
+// px4 ros msgs
 #include "geometry_msgs/msg/pose.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "px4_msgs/msg/trajectory_setpoint.hpp"
+#include "px4_msgs/msg/simple_battery_status.hpp"
+#include "px4_msgs/msg/commander_set_state.hpp"
+#include "px4_msgs/msg/commander_status.hpp"
+#include "px4_msgs/msg/parameter_req.hpp"
+#include "px4_msgs/msg/parameter_res.hpp"
+#include "px4_msgs/msg/vehicle_local_position.hpp"
+#include "px4_msgs/msg/vehicle_odometry.hpp"
 
-// custom messages
+
+// custom ros messages
 #include "dasc_msgs/msg/eware_mission_status.hpp"
 
 // rviz
@@ -33,10 +41,12 @@
 #include <QTableWidget>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <stdio.h>
+#include <QPainter>
 
-
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 // trajectory
-#include "Lissajous.hpp"
+// #include "Lissajous.hpp"
 
 namespace dasc_robot_gui {
 
@@ -55,59 +65,97 @@ public Q_SLOTS:
 
 protected Q_SLOTS:
   void timer_callback();
+  void setpoint_pub_timer_callback();
   // void viz_timer_callback();
   void updateTopic();
+  void parameter_req(bool set);
+  void commander_set_state(uint8_t new_state);
+  void trajectory_setpoint_cb(
+      const px4_msgs::msg::TrajectorySetpoint::SharedPtr msg) const; 
+  void vehicle_local_pos_cb(
+      const px4_msgs::msg::VehicleLocalPosition::SharedPtr msg) const;
+
+  void commander_status_cb(const px4_msgs::msg::CommanderStatus::SharedPtr msg);
+
+  void vehicle_visual_odometry_cb(
+      const px4_msgs::msg::VehicleOdometry::SharedPtr msg) const;
+
+  void parameter_res_cb(const px4_msgs::msg::ParameterRes::SharedPtr msg) const;
+
+  void
+  battery_status_cb(const px4_msgs::msg::SimpleBatteryStatus::SharedPtr msg) const;
+
+  void reset();
 
 protected:
   // ROS Topic name:
   QLineEdit *output_topic_editor_;
+  QLabel *battery_status_label_;
 
-  // Radio Buttons
-  // QRadioButton *traj_hover_button_;
-  // QRadioButton *traj_lissa_button_;
-  // QButtonGroup *traj_type_button_group_;
+  // Setpoint
+  QDoubleSpinBox *setpoint_x, *setpoint_y, *setpoint_z, *setpoint_yaw;
+  QLabel *setpoint_x_disp, *setpoint_y_disp, *setpoint_z_disp,
+      *setpoint_yaw_disp;
+  QCheckBox *setpoint_pub;
+  QTimer *setpoint_pub_timer_;
 
-  // QPushButton *set_hover_button_, *set_circle_button_,
-  //     *set_lissa_button_;
+    // EKF:
+  QLabel *ekf_x, *ekf_y, *ekf_z, *ekf_yaw, *ekf_valid;
 
-  QPushButton *start, *stop, *stay ;
+  // Mocap:
+  QLabel *mocap_x, *mocap_y, *mocap_z, *mocap_yaw, *mocap_valid;
 
-  // LissaTable
-  // QDoubleSpinBox *amplitude_x, *amplitude_y, *amplitude_z, *amplitude_yaw;
-  // QDoubleSpinBox *freq_x, *freq_y, *freq_z, *freq_yaw;
-  // QDoubleSpinBox *phi_x, *phi_y, *phi_z, *phi_yaw;
-  // QDoubleSpinBox *offset_x, *offset_y, *offset_z, *offset_yaw;
+  // Status:
+  QLabel *status_label_;
+  QPushButton *arm_button_, *offboard_button_, *land_button_, *disarm_button_;
 
-  // name of the output topic;
+  // Param:
+  QLineEdit *param_name_, *param_set_;
+  QLabel *param_get_label_;
+  QPushButton *param_get_button_, *param_set_button_;
+
+  // Raw mode cmd:
+  QSpinBox *motor_num;
+  QDoubleSpinBox *motor_cmd;
+  QCheckBox *raw_mode;
+
+  // The current name of the output topic.
   QString output_topic_;
 
   // ROS
+  // Node
   std::shared_ptr<rclcpp::Node> node_;
-  // rclcpp::Publisher<px4_msgs::msg::TrajectorySetpoint>::SharedPtr
-  //     trajectory_setpoint_pub_;
-  // rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr vis_path_pub_;
+
+  // Publishers
   rclcpp::Publisher<dasc_msgs::msg::EwareMissionStatus>::SharedPtr eware_mission_status_pub_;
+  rclcpp::Publisher<px4_msgs::msg::CommanderSetState>::SharedPtr
+      commander_set_state_pub_;
+  rclcpp::Publisher<px4_msgs::msg::TrajectorySetpoint>::SharedPtr
+      trajectory_setpoint_pub_;
+  rclcpp::Publisher<px4_msgs::msg::ParameterReq>::SharedPtr parameter_req_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr
+      current_setpoint_viz_pub_;
+
+  // Subscribers
+  rclcpp::Subscription<px4_msgs::msg::VehicleLocalPosition>::SharedPtr
+      vehicle_local_pos_sub_;
+  rclcpp::Subscription<px4_msgs::msg::CommanderStatus>::SharedPtr
+      commander_status_sub_;
+  rclcpp::Subscription<px4_msgs::msg::VehicleOdometry>::SharedPtr
+      vehicle_visual_odometry_sub_;
+  rclcpp::Subscription<px4_msgs::msg::TrajectorySetpoint>::SharedPtr
+      trajectory_setpoint_sub_;
+  rclcpp::Subscription<px4_msgs::msg::ParameterRes>::SharedPtr
+      parameter_res_sub_;
+  rclcpp::Subscription<px4_msgs::msg::SimpleBatteryStatus>::SharedPtr
+      battery_status_sub_;
 
   enum Mode {GROUNDED, STARTED, STOPPED};
-  // STOPPED: initiate landing if in offboard board
-  // STARTED: Start the mission
-  // HOVER: Keep the recent setpoint
 
   Mode mode = GROUNDED;
-  // ded
 
-  // px4_msgs::msg::TrajectorySetpoint msg;
   dasc_msgs::msg::EwareMissionStatus eware_mission_status_msg;
-  // Lissajous<double, 4> lissa;
-
-  // uint64_t traj_start_time;
-
-  // void update_lissa();
-  // void visualize_trajectory();
-
-  // void set_traj_hover();
-  // void set_traj_circle();
-  // void set_traj_lissa();
+  uint64_t last_timestamp_commander_status_ = 0;
 
 }; // class TrajectoryPanel
 
