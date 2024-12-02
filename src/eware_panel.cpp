@@ -1,28 +1,33 @@
 #include "eware_panel.hpp"
 
+#include <QGridLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPainter>
+#include <QPushButton>
+#include <QRadioButton>
+#include <QTimer>
+#include <QVBoxLayout>
+#include <stdio.h>
+
+#include <memory>
+
 #include "pluginlib/class_list_macros.hpp"
-
-// Create two publishers
-// 1. Eware mission status to publish the EwareMissionStatus.msg to signal onboard computer to start the mission
-// 2. (Might not need) Trajectory Visualizer
-
 
 namespace dasc_robot_gui {
 
 using std::placeholders::_1;
 
 EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
-
-  // construct the layout
-
-  // topic layout
+  // Next we lay out the "output topic" text entry field using a
+  // QLabel and a QLineEdit in a QHBoxLayout.
   QHBoxLayout *topic_layout = new QHBoxLayout;
   topic_layout->addWidget(new QLabel("Robot Namespace:"));
   output_topic_editor_ = new QLineEdit;
   topic_layout->addWidget(output_topic_editor_);
 
-
-  // Layout the grid of the EKF and Target Setpoints
+  // Next layout the grid of EKF and Target Setpoints
   QHBoxLayout *pos_layout = new QHBoxLayout;
   QGridLayout *grid_layout = new QGridLayout;
   grid_layout->setHorizontalSpacing(3);
@@ -36,6 +41,23 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
   grid_layout->addWidget(new QLabel("z [m]"), 0, 3);
   grid_layout->addWidget(new QLabel("yaw [°]"), 0, 4);
 
+  // visual inertial odom row
+  grid_layout->addWidget(new QLabel("Setpoint:"), 1, 0);
+  setpoint_x = new QDoubleSpinBox;
+  setpoint_y = new QDoubleSpinBox;
+  setpoint_z = new QDoubleSpinBox;
+  setpoint_yaw = new QDoubleSpinBox;
+  for (auto s : {setpoint_x, setpoint_y, setpoint_z}) {
+    s->setSingleStep(0.1);
+    s->setValue(0.0);
+    s->setRange(-100.0, 100.0);
+    s->setWrapping(false);
+  }
+  setpoint_z->setValue(-1.0);
+  setpoint_yaw->setSingleStep(5.0);
+  setpoint_yaw->setValue(90);
+  setpoint_yaw->setRange(0, 360);
+  setpoint_yaw->setWrapping(true);
 
   setpoint_pub = new QCheckBox("publish");
   setpoint_pub->setChecked(false);
@@ -61,7 +83,6 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
   grid_layout->addWidget(setpoint_z_disp, 2, 3);
   grid_layout->addWidget(setpoint_yaw_disp, 2, 4);
 
-
   // EKF row
   grid_layout->addWidget(new QLabel("EKF:"), 3, 0);
   ekf_x = new QLabel("NaN");
@@ -78,8 +99,7 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
   grid_layout->addWidget(ekf_yaw, 3, 4);
   grid_layout->addWidget(ekf_valid, 3, 5);
 
-
-    // mocap row
+  // mocap row
   grid_layout->addWidget(new QLabel("Mocap:"), 4, 0);
   mocap_x = new QLabel("NaN");
   mocap_y = new QLabel("NaN");
@@ -95,6 +115,8 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
   grid_layout->addWidget(mocap_yaw, 4, 4);
   grid_layout->addWidget(mocap_valid, 4, 5);
 
+  // visual inertial odom row
+  grid_layout->addWidget(new QLabel("VIO:"), 5, 0);
 
   // params row
   QHBoxLayout *param_layout = new QHBoxLayout;
@@ -113,7 +135,6 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
   param_layout->addWidget(param_set_);
   param_layout->addWidget(param_set_button_);
 
-  // Motor Layout
   QHBoxLayout *raw_motor_layout = new QHBoxLayout;
   raw_motor_layout->addWidget(new QLabel("Raw Motor CMD:"));
   motor_num = new QSpinBox;
@@ -133,29 +154,26 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
   status_layout->addWidget(status_label_);
   status_layout->addWidget(battery_status_label_);
 
-
   // create the arm disarm buttons
-  QHBoxLayout *button_layout_1 = new QHBoxLayout;
+  QHBoxLayout *button_layout = new QHBoxLayout;
   arm_button_ = new QPushButton("Arm", this);
-  offboard_button_ = new QPushButton("Start", this);
-  land_button_ = new QPushButton("Stop", this);
+  offboard_button_ = new QPushButton("Offboard", this);
+  start_button_ = new QPushButton("Start Mission", this);
   arm_button_->setDisabled(true);
   offboard_button_->setDisabled(true);
-  land_button_->setDisabled(true);
+  start_button_->setDisabled(true);
+  button_layout->addWidget(arm_button_);
+  button_layout->addWidget(offboard_button_);
+  button_layout->addWidget(start_button_);
 
-  // button_layout_1->addWidget(arm_button_);
-  // button_layout_1->addWidget(offboard_button_);
-  // button_layout_1->addWidget(land_button_);  
-  for (auto b : {arm_button_, offboard_button_, land_button_}){
-    button_layout_1->addWidget(b);
-  }
-
-    // create the disarm button
-  QHBoxLayout *button_layout_2 = new QHBoxLayout;
-  disarm_button_ = new QPushButton("Disarm", this);
+  // create the disarm button
+  QHBoxLayout *disarm_layout = new QHBoxLayout;
+  disarm_button_ = new QPushButton("&Disarm", this);
+  land_button_ = new QPushButton("Stop Misson / Land", this);
   disarm_button_->setDisabled(false);
-  button_layout_2->addWidget(disarm_button_);
-
+  land_button_->setDisabled(true);
+  disarm_layout->addWidget(disarm_button_);
+  disarm_layout->addWidget(land_button_);
 
   // Lay out the topic field above the control widget.
   QVBoxLayout *layout = new QVBoxLayout;
@@ -164,8 +182,8 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
   layout->addLayout(param_layout);
   layout->addLayout(raw_motor_layout);
   layout->addLayout(status_layout);
-  layout->addLayout(button_layout_1);
-  layout->addLayout(button_layout_2);
+  layout->addLayout(button_layout);
+  layout->addLayout(disarm_layout);
   setLayout(layout);
 
   // Create a timer for sending the output.  
@@ -176,24 +194,30 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
   connect(output_topic_editor_, SIGNAL(editingFinished()), this,
           SLOT(updateTopic()));
 
-
   connect(arm_button_, &QPushButton::clicked, this, [this]() {
     this->commander_set_state(px4_msgs::msg::CommanderSetState::STATE_ARMED);
     mode = Mode::GROUNDED;
   });
+
   connect(offboard_button_, &QPushButton::clicked, this, [this]() {
     this->commander_set_state(px4_msgs::msg::CommanderSetState::STATE_OFFBOARD);
+    mode = Mode::HOVERING;
+  });
+
+  connect(start_button_, &QPushButton::clicked, this, [this]() {
     mode = Mode::STARTED;
   });
+
   connect(land_button_, &QPushButton::clicked, this, [this]() {
     this->commander_set_state(px4_msgs::msg::CommanderSetState::STATE_LAND);
     mode = Mode::STOPPED;
     setpoint_pub->setChecked(false);
   });
+
   connect(disarm_button_, &QPushButton::clicked, this, [this]() {
     this->commander_set_state(px4_msgs::msg::CommanderSetState::STATE_DISARMED);
-    mode = Mode::GROUNDED;
     setpoint_pub->setChecked(false);
+    mode = Mode::GROUNDED;
   });
   connect(param_get_button_, &QPushButton::clicked, this,
           [this]() { this->parameter_req(false); });
@@ -214,148 +238,263 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
           SLOT(setpoint_pub_timer_callback()));
 
   // Start the main timer.
-  output_timer->start(200); // ms
+  output_timer->start(100); // ms
 
   // Create the node
-  node_ = std::make_shared<rclcpp::Node>("eware_panel_node");
-
+  node_ = std::make_shared<rclcpp::Node>("Teplop_gui_node");
 }
 
+void EwarePanel::parameter_req(bool set) {
 
+  param_get_label_->setText("[?]");
 
-void EwarePanel::updateTopic() {
-
-  std::cout << "update topic!" << std::endl;
-
-  setTopic(output_topic_editor_->text());
-
-  return;
-}
-
-void EwarePanel::setTopic(const QString &new_string) {
-
-  // only take action if the name has changed.
-  if (new_string == output_topic_) {
+  std::string param_name = param_name_->text().toStdString(); // get the text
+  if (param_name == "") {
+    return;
+  }
+  if (param_name.length() > 16) {
+    // param_name is too long
+    param_get_label_->setText("[len(param_name) > 16]");
     return;
   }
 
-  output_topic_ = new_string;
+  if (rclcpp::ok() && parameter_req_pub_ != NULL) {
+    // construct the request message
+    px4_msgs::msg::ParameterReq msg;
 
-  // Mission status pub
-  if (eware_mission_status_pub_ != NULL) {
-    eware_mission_status_pub_.reset();
+    const char *param_name_char =
+        reinterpret_cast<const char *>(param_name.c_str());
+    for (size_t i = 0; i < param_name.length(); i++) {
+      msg.param_name[i] = param_name_char[i];
+    }
+
+    msg.set = set;
+    if (set) {
+      // need to populate parameter
+      bool ok;
+      float new_value = param_set_->text().toFloat(&ok);
+      if (!ok) {
+        std::cout << "Unable to get numeric value: only sending get request"
+                  << std::endl;
+        msg.set = false;
+      } else {
+        msg.value = new_value;
+      }
+    }
+
+    parameter_req_pub_->publish(msg);
   }
+}
 
-  // if the pub/sub exists, reset it first
-  if (commander_set_state_pub_ != NULL) {
-    commander_set_state_pub_.reset();
+void EwarePanel::setpoint_pub_timer_callback() {
+
+  if (rclcpp::ok() && trajectory_setpoint_pub_ != NULL) {
+    // construct the setpoint
+    px4_msgs::msg::TrajectorySetpoint msg;
+    if (raw_mode->isChecked()) {
+      msg.raw_mode = true;
+      for (size_t i = 0; i < 4; i++) {
+        msg.cmd[i] = 0;
+      }
+      msg.cmd[motor_num->value() - 1] = motor_cmd->value();
+    } else {
+      msg.raw_mode = false;
+      msg.position[0] = setpoint_x->value();
+      msg.position[1] = setpoint_y->value();
+      msg.position[2] = setpoint_z->value();
+      msg.yaw = (float)(M_PI / 180.f) * (float)(setpoint_yaw->value());
+      for (std::size_t i = 0; i < 3; i++) {
+        msg.velocity[i] = 0;
+        msg.acceleration[i] = 0;
+        msg.jerk[i] = 0;
+      }
+      msg.yawspeed = 0;
+    }
+    trajectory_setpoint_pub_->publish(msg);
   }
+}
 
-  if (trajectory_setpoint_sub_ != NULL) {
-    trajectory_setpoint_sub_.reset();
-  }
-
-  if (vehicle_local_pos_sub_ != NULL) {
-    vehicle_local_pos_sub_.reset();
-  }
-
-  if (commander_status_sub_ != NULL) {
-    commander_status_sub_.reset();
-  }
-
-  // if (vehicle_visual_odometry_sub_ != NULL) {
-  //   vehicle_visual_odometry_sub_.reset();
-  // }
-
-  if (parameter_req_pub_ != NULL) {
-    parameter_req_pub_.reset();
-  }
-
-  if (parameter_res_sub_ != NULL) {
-    parameter_res_sub_.reset();
-  }
-
-  if (current_setpoint_viz_pub_ != NULL) {
-    current_setpoint_viz_pub_.reset();
-  }
+void EwarePanel::timer_callback() {
 
   reset();
 
-  // If the topic is the empty string, don't publish anything.
-  if (output_topic_ != "") {
+  rclcpp::spin_some(node_);
 
-    // create publishers
-    commander_set_state_pub_ =
-        node_->create_publisher<px4_msgs::msg::CommanderSetState>(
-            output_topic_.toStdString() + "/fmu/in/commander_set_state", 1);
-
-
-    parameter_req_pub_ = node_->create_publisher<px4_msgs::msg::ParameterReq>(
-        output_topic_.toStdString() + "/fmu/in/parameter_req", 1);
-
-    current_setpoint_viz_pub_ =
-        node_->create_publisher<geometry_msgs::msg::PoseStamped>(
-            output_topic_.toStdString() + "/viz/trajectory_setpoint", 1);
-
-
-    eware_mission_status_pub_ = node_->create_publisher<dasc_msgs::msg::EwareMissionStatus>(
-      output_topic_.toStdString() + "/gs/eware_mission_status", 1);
-
-
-    // create subscribers
-    rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
-    auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5),
-                            qos_profile);
-    auto new_topic =
-        output_topic_.toStdString() + "/fmu/out/vehicle_local_position";
-    std::cout << "Subscribing to: " << new_topic << std::endl;
-    vehicle_local_pos_sub_ =
-        node_->create_subscription<px4_msgs::msg::VehicleLocalPosition>(
-            new_topic, qos,
-            std::bind(&EwarePanel::vehicle_local_pos_cb, this, _1));
-
-    new_topic = output_topic_.toStdString() + "/fmu/out/commander_status";
-    std::cout << "Subscribing to: " << new_topic << std::endl;
-    commander_status_sub_ =
-        node_->create_subscription<px4_msgs::msg::CommanderStatus>(
-            new_topic, qos,
-            std::bind(&EwarePanel::commander_status_cb, this, _1));
-
-    new_topic = output_topic_.toStdString() + "/fmu/in/trajectory_setpoint";
-    std::cout << "Subscribing to: " << new_topic << std::endl;
-    trajectory_setpoint_sub_ =
-        node_->create_subscription<px4_msgs::msg::TrajectorySetpoint>(
-            new_topic, qos,
-            std::bind(&EwarePanel::trajectory_setpoint_cb, this, _1));
-
-    new_topic =
-        output_topic_.toStdString() + "/fmu/in/vehicle_visual_odometry";
-    std::cout << "Subscribing to: " << new_topic << std::endl;
-    vehicle_visual_odometry_sub_ =
-        node_->create_subscription<px4_msgs::msg::VehicleOdometry>(
-            new_topic, qos,
-            std::bind(&EwarePanel::vehicle_visual_odometry_cb, this, _1));
-
-
-    new_topic = output_topic_.toStdString() + "/fmu/out/parameter_res";
-    std::cout << "Subscribing to: " << new_topic << std::endl;
-    parameter_res_sub_ =
-        node_->create_subscription<px4_msgs::msg::ParameterRes>(
-            new_topic, qos,
-            std::bind(&EwarePanel::parameter_res_cb, this, _1));
-
-    new_topic = output_topic_.toStdString() + "/fmu/out/simple_battery_status";
-    std::cout << "Subscribing to: " << new_topic << std::endl;
-    battery_status_sub_ =
-        node_->create_subscription<px4_msgs::msg::SimpleBatteryStatus>(
-            new_topic, qos,
-            std::bind(&EwarePanel::battery_status_cb, this, _1));
+  // check if the connection is still alive
+  rclcpp::Time now_ = node_->get_clock()->now();
+  const uint64_t status_timeout_ns = 1e9;
+  if (now_.nanoseconds() - last_timestamp_commander_status_ >
+      status_timeout_ns) {
+    // set publish to false
+    setpoint_pub->setChecked(false);
+    // set status to comms lost
+    arm_button_->setDisabled(true);
+    offboard_button_->setDisabled(true);
+    land_button_->setDisabled(false);
+    disarm_button_->setDisabled(false);
+    status_label_->setText("state: COMMS_LOST");
   }
 
-  // emit config changed signal
-  Q_EMIT configChanged();
+  // If the eware_mission_status_pub_ is NULL, it means that publisher has not been properly initialized 
+  if (!(rclcpp::ok() && eware_mission_status_pub_ != NULL)) {
+    return;
+  }
+
+  // if pressed grounded (land immediately)
+  if (mode == Mode::GROUNDED || mode == Mode::HOVERING) {
+      eware_mission_status_msg.mission_start = false;
+      eware_mission_status_msg.mission_quit = false;
+      eware_mission_status_pub_->publish(eware_mission_status_msg);  
+    return;
+  }
+
+  // Start the mission
+  if (mode == Mode::STARTED) {
+    eware_mission_status_msg.mission_start = true;
+    eware_mission_status_msg.mission_quit = false;
+    eware_mission_status_pub_->publish(eware_mission_status_msg);
+    return;
+  }
+
+  // Stop the mission and land immediately
+  if (mode == Mode::STOPPED) {
+    eware_mission_status_msg.mission_start = false;
+    eware_mission_status_msg.mission_quit = true;
+    eware_mission_status_pub_->publish(eware_mission_status_msg);
+    return;
+  }
+
 }
 
+// Read the topic name from the QLineEdit and call setTopic() with the
+// results.  This is connected to QLineEdit::editingFinished() which
+// fires when the user presses Enter or Tab or otherwise moves focus
+// away.
+void EwarePanel::updateTopic() { setTopic(output_topic_editor_->text()); }
+
+// Set the topic name we are publishing to.
+void EwarePanel::setTopic(const QString &new_topic) {
+  // Only take action if the name has changed.
+  if (new_topic != output_topic_) {
+    output_topic_ = new_topic;
+
+    // Mission status pub
+    if (eware_mission_status_pub_ != NULL) {
+      eware_mission_status_pub_.reset();
+    }
+
+    // if the pub/sub exists, reset it first
+    if (commander_set_state_pub_ != NULL) {
+      commander_set_state_pub_.reset();
+    }
+    if (trajectory_setpoint_pub_ != NULL) {
+      trajectory_setpoint_pub_.reset();
+    }
+    if (trajectory_setpoint_sub_ != NULL) {
+      trajectory_setpoint_sub_.reset();
+    }
+    if (vehicle_local_pos_sub_ != NULL) {
+      vehicle_local_pos_sub_.reset();
+    }
+    if (commander_status_sub_ != NULL) {
+      commander_status_sub_.reset();
+    }
+    if (vehicle_visual_odometry_sub_ != NULL) {
+      vehicle_visual_odometry_sub_.reset();
+    }
+    if (parameter_req_pub_ != NULL) {
+      parameter_req_pub_.reset();
+    }
+    if (parameter_res_sub_ != NULL) {
+      parameter_res_sub_.reset();
+    }
+    if (current_setpoint_viz_pub_ != NULL) {
+      current_setpoint_viz_pub_.reset();
+    }
+
+    reset();
+
+    // If the topic is the empty string, don't publish anything.
+    if (output_topic_ != "") {
+
+      // create publishers
+      commander_set_state_pub_ =
+          node_->create_publisher<px4_msgs::msg::CommanderSetState>(
+              output_topic_.toStdString() + "/fmu/in/commander_set_state", 1);
+
+      trajectory_setpoint_pub_ =
+          node_->create_publisher<px4_msgs::msg::TrajectorySetpoint>(
+              output_topic_.toStdString() + "/fmu/in/trajectory_setpoint", 1);
+
+      parameter_req_pub_ = node_->create_publisher<px4_msgs::msg::ParameterReq>(
+          output_topic_.toStdString() + "/fmu/in/parameter_req", 1);
+
+      current_setpoint_viz_pub_ =
+          node_->create_publisher<geometry_msgs::msg::PoseStamped>(
+              output_topic_.toStdString() + "/viz/trajectory_setpoint", 1);
+
+      eware_mission_status_pub_ = node_->create_publisher<dasc_msgs::msg::EwareMissionStatus>(
+        output_topic_.toStdString() + "/gs/eware_mission_status", 1);
+
+
+      // create subscribers
+      rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
+      auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5),
+                             qos_profile);
+      auto new_topic =
+          output_topic_.toStdString() + "/fmu/out/vehicle_local_position";
+      std::cout << "Subscribing to: " << new_topic << std::endl;
+      vehicle_local_pos_sub_ =
+          node_->create_subscription<px4_msgs::msg::VehicleLocalPosition>(
+              new_topic, qos,
+              std::bind(&EwarePanel::vehicle_local_pos_cb, this, _1));
+
+      new_topic = output_topic_.toStdString() + "/fmu/out/commander_status";
+      std::cout << "Subscribing to: " << new_topic << std::endl;
+      commander_status_sub_ =
+          node_->create_subscription<px4_msgs::msg::CommanderStatus>(
+              new_topic, qos,
+              std::bind(&EwarePanel::commander_status_cb, this, _1));
+
+      new_topic = output_topic_.toStdString() + "/fmu/in/trajectory_setpoint";
+      std::cout << "Subscribing to: " << new_topic << std::endl;
+      trajectory_setpoint_sub_ =
+          node_->create_subscription<px4_msgs::msg::TrajectorySetpoint>(
+              new_topic, qos,
+              std::bind(&EwarePanel::trajectory_setpoint_cb, this, _1));
+
+      new_topic =
+          output_topic_.toStdString() + "/fmu/in/vehicle_visual_odometry";
+      std::cout << "Subscribing to: " << new_topic << std::endl;
+      vehicle_visual_odometry_sub_ =
+          node_->create_subscription<px4_msgs::msg::VehicleOdometry>(
+              new_topic, qos,
+              std::bind(&EwarePanel::vehicle_visual_odometry_cb, this, _1));
+
+      new_topic = output_topic_.toStdString() + "/fmu/out/parameter_res";
+      std::cout << "Subscribing to: " << new_topic << std::endl;
+      parameter_res_sub_ =
+          node_->create_subscription<px4_msgs::msg::ParameterRes>(
+              new_topic, qos,
+              std::bind(&EwarePanel::parameter_res_cb, this, _1));
+
+      new_topic = output_topic_.toStdString() + "/fmu/out/simple_battery_status";
+      std::cout << "Subscribing to: " << new_topic << std::endl;
+      battery_status_sub_ =
+          node_->create_subscription<px4_msgs::msg::SimpleBatteryStatus>(
+              new_topic, qos,
+              std::bind(&EwarePanel::battery_status_cb, this, _1));
+    }
+
+    // rviz_common::Panel defines the configChanged() signal.  Emitting it
+    // tells RViz that something in this panel has changed that will
+    // affect a saved config file.  Ultimately this signal can cause
+    // QWidget::setWindowModified(true) to be called on the top-level
+    // rviz_common::VisualizationFrame, which causes a little asterisk ("*")
+    // to show in the window's title bar indicating unsaved changes.
+    Q_EMIT configChanged();
+  }
+}
 
 void EwarePanel::battery_status_cb(
     const px4_msgs::msg::SimpleBatteryStatus::SharedPtr msg) const {
@@ -370,7 +509,6 @@ void EwarePanel::battery_status_cb(
   //}
   return;
 }
-
 
 void EwarePanel::parameter_res_cb(
     const px4_msgs::msg::ParameterRes::SharedPtr msg) const {
@@ -415,7 +553,6 @@ void EwarePanel::vehicle_visual_odometry_cb(
   mocap_valid->setStyleSheet("QLabel { color : green; }");
 }
 
-
 void EwarePanel::trajectory_setpoint_cb(
     const px4_msgs::msg::TrajectorySetpoint::SharedPtr msg) const {
 
@@ -443,7 +580,6 @@ void EwarePanel::trajectory_setpoint_cb(
   current_setpoint_viz_pub_->publish(viz_msg);
 }
 
-
 void EwarePanel::commander_status_cb(
     const px4_msgs::msg::CommanderStatus::SharedPtr msg) {
 
@@ -465,6 +601,14 @@ void EwarePanel::commander_status_cb(
   disarm_button_->setDisabled(msg->state ==
                               px4_msgs::msg::CommanderStatus::STATE_DISARMED);
 
+  // start button
+  if (msg->state == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD && mode != Mode::STARTED){
+    start_button_->setDisabled(false);
+  }
+  else{
+    start_button_->setDisabled(true);
+  }
+
   switch (msg->state) {
 
   case px4_msgs::msg::CommanderStatus::STATE_DISARMED:
@@ -474,10 +618,10 @@ void EwarePanel::commander_status_cb(
     status_label_->setText("state: ARMED");
     return;
   case px4_msgs::msg::CommanderStatus::STATE_OFFBOARD:
-    status_label_->setText("state: MISSON");
+    status_label_->setText("state: OFFBOARD");
     return;
   case px4_msgs::msg::CommanderStatus::STATE_LAND:
-    status_label_->setText("state: LANDING");
+    status_label_->setText("state: LAND");
     return;
   default:
     return;
@@ -500,7 +644,6 @@ float eware_wrapTo2Pi(float yaw)
   return yaw;
 }
 
-// TODO: Fix this method; make sure nothing is connected to setting setpoint
 void EwarePanel::reset() {
 
   for (auto l :
@@ -539,7 +682,6 @@ void EwarePanel::vehicle_local_pos_cb(
       QString("%1").arg(yaw, 5, 'f', 1, ' '));
 }
 
-
 void EwarePanel::commander_set_state(uint8_t new_state) {
   if (rclcpp::ok() && commander_set_state_pub_ != NULL) {
     px4_msgs::msg::CommanderSetState msg;
@@ -548,76 +690,28 @@ void EwarePanel::commander_set_state(uint8_t new_state) {
   }
 }
 
-
-void EwarePanel::timer_callback() {
-
-  // Unlike rclcpp::spin, rclcpp::spin_some processess only the work available at the moment and then returns immediately
-  rclcpp::spin_some(node_);
-
-
-  // check if the connection is still alive
-  rclcpp::Time now_ = node_->get_clock()->now();
-  const uint64_t status_timeout_ns = 1e9;
-  if (now_.nanoseconds() - last_timestamp_commander_status_ >
-      status_timeout_ns) {
-    // set publish to false
-    // set status to comms lost
-    arm_button_->setDisabled(true);
-    offboard_button_->setDisabled(true);
-    land_button_->setDisabled(false);
-    disarm_button_->setDisabled(false);
-    status_label_->setText("state: COMMS_LOST");
-    return;
-  }
-
-  // If the eware_mission_status_pub_ is NULL, it means that publisher has not been properly initialized 
-  if (!(rclcpp::ok() && eware_mission_status_pub_ != NULL)) {
-    return;
-  }
-
-  // if pressed grounded (land immediately)
-  if (mode == Mode::GROUNDED) {
-      eware_mission_status_msg.mission_start = false;
-      eware_mission_status_msg.mission_quit = false;
-      eware_mission_status_pub_->publish(eware_mission_status_msg);  
-    return;
-  }
-
-  // Start the mission
-  if (mode == Mode::STARTED) {
-    eware_mission_status_msg.mission_start = true;
-    eware_mission_status_msg.mission_quit = false;
-    eware_mission_status_pub_->publish(eware_mission_status_msg);
-    return;
-  }
-
-  // Stop the mission and land immediately
-  if (mode == Mode::STOPPED) {
-    eware_mission_status_msg.mission_quit = false;
-    eware_mission_status_msg.mission_quit = true;
-    eware_mission_status_pub_->publish(eware_mission_status_msg);
-    return;
-  }
-}
-
+// Save all configuration data from this panel to the given
+// Config object.  It is important here that you call save()
+// on the parent class so the class id and panel name get saved.
 void EwarePanel::save(rviz_common::Config config) const {
-
   rviz_common::Panel::save(config);
   config.mapSetValue("Topic", output_topic_);
 }
 
-
+// Load all configuration data for this panel from the given Config object.
 void EwarePanel::load(const rviz_common::Config &config) {
   rviz_common::Panel::load(config);
-
   QString topic;
   if (config.mapGetString("Topic", &topic)) {
-
     output_topic_editor_->setText(topic);
     updateTopic();
   }
 }
 
-} // namespace dasc_robot_gui
+} // end namespace dasc_robot_gui
 
+// Tell pluginlib about this class.  Every class which should be
+// loadable by pluginlib::ClassLoader must have these two lines
+// compiled in its .cpp file, outside of any namespace scope.
 PLUGINLIB_EXPORT_CLASS(dasc_robot_gui::EwarePanel, rviz_common::Panel)
+// END_TUTORIAL
