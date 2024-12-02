@@ -125,7 +125,7 @@ protected:
 
   // Status:
   QLabel *status_label_;
-  QPushButton *arm_button_, *start_button_, *offboard_button_, *land_button_, *disarm_button_;
+  QPushButton *arm_button_, *start_button_, *offboard_button_, *land_button_, *disarm_button_, *start_sim_button_, *stop_sim_button_;
 
   // Param:
   QLineEdit *param_name_, *param_set_;
@@ -168,7 +168,7 @@ protected:
 
   uint64_t last_timestamp_commander_status_ = 0;
 
-  enum Mode {GROUNDED, HOVERING, STARTED, STOPPED};
+  enum Mode {GROUNDED, HOVERING, STARTED, STOPPED, SIMSTART};
 
   Mode mode = GROUNDED;
   dasc_msgs::msg::EwareMissionStatus eware_mission_status_msg;

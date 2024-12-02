@@ -175,6 +175,18 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
   disarm_layout->addWidget(disarm_button_);
   disarm_layout->addWidget(land_button_);
 
+  // create the simulation button
+  // They are meant to run the preview of the flights before flying them
+  QHBoxLayout *sim_layout = new QHBoxLayout;
+  start_sim_button_ = new QPushButton("Mission Preview", this);
+  stop_sim_button_ = new QPushButton("Stop Preview", this);
+  start_sim_button_->setDisabled(false);
+  stop_sim_button_->setDisabled(false);
+  sim_layout->addWidget(start_sim_button_);
+  sim_layout->addWidget(stop_sim_button_);
+
+
+
   // Lay out the topic field above the control widget.
   QVBoxLayout *layout = new QVBoxLayout;
   layout->addLayout(topic_layout);
@@ -184,6 +196,7 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
   layout->addLayout(status_layout);
   layout->addLayout(button_layout);
   layout->addLayout(disarm_layout);
+  layout->addLayout(sim_layout);
   setLayout(layout);
 
   // Create a timer for sending the output.  
@@ -219,6 +232,17 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
     setpoint_pub->setChecked(false);
     mode = Mode::GROUNDED;
   });
+
+  connect(start_sim_button_, &QPushButton::clicked, this, [this]() {
+    mode = Mode::SIMSTART;
+  });
+
+  connect(stop_sim_button_, &QPushButton::clicked, this, [this]() {
+    this->commander_set_state(px4_msgs::msg::CommanderSetState::STATE_DISARMED);
+    setpoint_pub->setChecked(false);
+    mode = Mode::GROUNDED;
+  });
+
   connect(param_get_button_, &QPushButton::clicked, this,
           [this]() { this->parameter_req(false); });
   connect(param_set_button_, &QPushButton::clicked, this,
@@ -349,7 +373,7 @@ void EwarePanel::timer_callback() {
   }
 
   // Start the mission
-  if (mode == Mode::STARTED) {
+  if (mode == Mode::STARTED || mode == Mode::SIMSTART) {
     eware_mission_status_msg.mission_start = true;
     eware_mission_status_msg.mission_quit = false;
     eware_mission_status_pub_->publish(eware_mission_status_msg);
@@ -585,6 +609,18 @@ void EwarePanel::commander_status_cb(
 
   last_timestamp_commander_status_ = node_->get_clock()->now().nanoseconds();
 
+
+  if (mode == Mode::SIMSTART){
+    arm_button_->setDisabled(true);
+    offboard_button_->setDisabled(true);
+    land_button_->setDisabled(true);
+    disarm_button_->setDisabled(true);
+    start_sim_button_->setDisabled(true);
+    stop_sim_button_->setDisabled(false);
+    status_label_->setText("state: Flight preview");
+    return;
+  }
+
   // ARM
   arm_button_->setDisabled(msg->state !=
                            px4_msgs::msg::CommanderStatus::STATE_DISARMED);
@@ -607,6 +643,14 @@ void EwarePanel::commander_status_cb(
   }
   else{
     start_button_->setDisabled(true);
+  }
+
+  // Simulation button
+  if (msg->state == px4_msgs::msg::CommanderStatus::STATE_DISARMED && mode == Mode::GROUNDED){
+    start_sim_button_->setDisabled(false);
+  }
+  else{
+    start_sim_button_->setDisabled(true);
   }
 
   switch (msg->state) {
