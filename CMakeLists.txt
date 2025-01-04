@@ -35,6 +35,7 @@ set(CMAKE_AUTOMOC ON)
 set(SRC_FILES
   src/eware_panel.cpp
   src/teleop_panel.cpp
+  src/meSch_panel.cpp
 )
 
 ## An rviz plugin is just a shared library, so here we declare the

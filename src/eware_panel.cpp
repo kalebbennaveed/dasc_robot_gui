@@ -204,8 +204,12 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
   setpoint_pub_timer_ = new QTimer(this);
 
   // Next we make signal/slot connections.
+
+
+  // First get the topic name and update the topics with it
   connect(output_topic_editor_, SIGNAL(editingFinished()), this,
           SLOT(updateTopic()));
+
 
   connect(arm_button_, &QPushButton::clicked, this, [this]() {
     this->commander_set_state(px4_msgs::msg::CommanderSetState::STATE_ARMED);
@@ -240,7 +244,7 @@ EwarePanel::EwarePanel(QWidget *parent) : rviz_common::Panel(parent) {
   connect(stop_sim_button_, &QPushButton::clicked, this, [this]() {
     this->commander_set_state(px4_msgs::msg::CommanderSetState::STATE_DISARMED);
     setpoint_pub->setChecked(false);
-    mode = Mode::GROUNDED;
+    mode = Mode::STOPPED;
   });
 
   connect(param_get_button_, &QPushButton::clicked, this,
@@ -399,6 +403,8 @@ void EwarePanel::updateTopic() { setTopic(output_topic_editor_->text()); }
 // Set the topic name we are publishing to.
 void EwarePanel::setTopic(const QString &new_topic) {
   // Only take action if the name has changed.
+  // if the topic name is 
+  
   if (new_topic != output_topic_) {
     output_topic_ = new_topic;
 
@@ -646,7 +652,7 @@ void EwarePanel::commander_status_cb(
   }
 
   // Simulation button
-  if (msg->state == px4_msgs::msg::CommanderStatus::STATE_DISARMED && mode == Mode::GROUNDED){
+  if (msg->state == px4_msgs::msg::CommanderStatus::STATE_DISARMED && (mode == Mode::GROUNDED || mode == Mode::STOPPED)){
     start_sim_button_->setDisabled(false);
   }
   else{
