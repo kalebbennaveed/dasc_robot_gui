@@ -171,7 +171,7 @@ protected:
     int robot_num_int_;
     uint8_t robot_1_commander_status_, robot_2_commander_status_, robot_3_commander_status_;
 
-    enum Mode {ALL_GROUNDED, TOPICS_INIT, ALL_OFFBOARD, ALL_STOPPED, SIMSTART};
+    enum Mode {ALL_GROUNDED, TOPICS_INIT, ALL_OFFBOARD, ALL_STOPPED, STARTED, SIMSTART};
 
     Mode mode = ALL_GROUNDED;
     dasc_msgs::msg::meSchMissionStatus meSch_mission_status_msg;

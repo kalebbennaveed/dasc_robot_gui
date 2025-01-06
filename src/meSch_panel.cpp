@@ -115,6 +115,15 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
     connect(init_topic_button_, &QPushButton::clicked, this, [this]() {
         UpdateTopic()
 
+    connect(start_sim_button_, &QPushButton::clicked, this, [this]() {
+        mode = Mode::SIMSTART;
+    });
+
+    connect(stop_sim_button_, &QPushButton::clicked, this, [this]() {
+        this->commander_set_state(px4_msgs::msg::CommanderSetState::STATE_DISARMED);
+        mode = Mode::STOPPED;
+    });
+
     connect(stop_mis_button_, &QPushButton::clicked, this, [this]() {
         this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_LAND);
         mode = Mode::STOPPED;
@@ -122,7 +131,7 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
 
     connect(disarm_button_, &QPushButton::clicked, this, [this]() {
         this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_DISARMED);
-        mode = Mode::ALL_GROUNDED;
+        mode = Mode::GROUNDED;
     });
 
     connect(output_timer, SIGNAL(timeout()), this, SLOT(timer_callback()));
@@ -161,7 +170,7 @@ void meSchPanel::timer_callback() {
             if (robot_1_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD
                 && robot_2_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD){
                 // change the mode to offboard
-                mode == Mode::ALL_OFFBOARD
+                mode == Mode::OFFBOARD
 
                 // Enable the mission button
                 start_mis_button_->setDisabled(false)
@@ -171,7 +180,7 @@ void meSchPanel::timer_callback() {
                 && robot_2_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD
                 && robot_3_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD){
                 // change the mode to offboard
-                mode == Mode::ALL_OFFBOARD
+                mode == Mode::OFFBOARD
 
                 // Enable the mission button
                 start_mis_button_->setDisabled(false)
@@ -179,36 +188,44 @@ void meSchPanel::timer_callback() {
         }
     }
 
-    if (mode == Mode::ALL_OFFBOARD){
-        this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_LAND)
+    if (mode == Mode::OFFBOARD){
+        if (robot_num_int_ == 2){
+            if (robot_1_commander_status_ != px4_msgs::msg::CommanderStatus::STATE_OFFBOARD
+                || robot_2_commander_status_ != px4_msgs::msg::CommanderStatus::STATE_OFFBOARD){
+
+                // land all
+                this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_LAND)
+                mode = Mode::STOPPED
+                start_mis_button_->setDisabled(true)
+            }
+        }else if (robot_num_int_ == 3){
+            if (robot_1_commander_status_ != px4_msgs::msg::CommanderStatus::STATE_OFFBOARD
+                || robot_2_commander_status_ != px4_msgs::msg::CommanderStatus::STATE_OFFBOARD
+                || robot_3_commander_status_ != px4_msgs::msg::CommanderStatus::STATE_OFFBOARD){
+
+                // land all
+                this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_LAND)
+                mode = Mode::STOPPED
+                start_mis_button_->setDisabled(true)
+            }        
+        }
     }
 
 
 
-
-
-
-
-  // If topics updated and all robot_commander_state == true 
-  //    Activate Start mission button
-
-  // if topics updated and all robot_commander_state == false
-  // if already in mission
-  //        Land all robots 
-
-  // if pressed ALL_GROUNDED (land immediately)
-  if (mode == Mode::ALL_GROUNDED || mode == Mode::HOVERING) {
-      eware_mission_status_msg.mission_start = false;
-      eware_mission_status_msg.mission_quit = false;
-      eware_mission_status_pub_->publish(eware_mission_status_msg);  
+  // if pressed GROUNDED OR just hovering at starting point then
+  if (mode == Mode::GROUNDED || mode == Mode::OFFBOARD) {
+      mesch_mission_status_msg.mission_start = false;
+      mesch_mission_status_msg.mission_quit = false;
+      eware_mission_status_pub_->publish(mesch_mission_status_msg);  
     return;
   }
 
   // Start the mission
   if (mode == Mode::STARTED || mode == Mode::SIMSTART) {
-    eware_mission_status_msg.mission_start = true;
-    eware_mission_status_msg.mission_quit = false;
-    eware_mission_status_pub_->publish(eware_mission_status_msg);
+    mesch_mission_status_msg.mission_start = true;
+    mesch_mission_status_msg.mission_quit = false;
+    mesch_mission_status_pub->publish(mesch_mission_status_msg);
     return;
   }
 
@@ -384,7 +401,7 @@ void meSchPanel::robot_3_commander_status_cb(
 
 
 void meSchPanel::all_commander_set_state(uint8_t new_state) {
-  if (rclcpp::ok() && mode == mode::ALL_OFFBOARD) {
+  if (rclcpp::ok() && mode == mode::OFFBOARD) {
     px4_msgs::msg::CommanderSetState msg;
     msg.new_state = new_state;
     for (const auto &commander_set_state_pub_ : commander_set_state_pub_vec_){
