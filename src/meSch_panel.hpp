@@ -4,6 +4,17 @@
 // Robot 3 name
 
 
+// Logic
+// 1. First fill in the names of the robot 
+// 2. Then, enter the number of the robot to initialize mission for
+// 3. Press the initialize mission. This create separates topic and set the stage ready and set the mode to topics_initialized
+// 4. If topics initialized, keep on checking for commander status
+// 5. (Callback) if the commander status is offboard for all the topics then enable the mission button
+// 6. (Callback) if the commander status is moved to not in offboard then land all robots (Not required to press the land all)
+// 7. (Callback) if land all pressed then move all the robots to the landing mode
+// 8. Also allow comman disarming 
+
+
 
 
 
@@ -160,9 +171,9 @@ protected:
     int robot_num_int_;
     uint8_t robot_1_commander_status_, robot_2_commander_status_, robot_3_commander_status_;
 
-    enum Mode {GROUNDED, HOVERING, STARTED, STOPPED, SIMSTART};
+    enum Mode {ALL_GROUNDED, TOPICS_INIT, ALL_OFFBOARD, ALL_STOPPED, SIMSTART};
 
-    Mode mode = GROUNDED;
+    Mode mode = ALL_GROUNDED;
     dasc_msgs::msg::meSchMissionStatus meSch_mission_status_msg;
 };
 

@@ -51,6 +51,10 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
     init_topic_button_->setDisabled(false);
     init_topic_layout->addWidget(init_topic_button_);
 
+    // state labels
+    QHBoxLayout *status_layout = new QHBoxLayout;
+    status_label_ = new QLabel("status: Fill name -> num (at least 2) -> init");
+    status_layout->addWidget(status_label_);
 
     // create the mission preview buttons
     QHBoxLayout *sim_layout = new QHBoxLayout;
@@ -71,16 +75,23 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
     sim_layout->addWidget(start_mis_button_);
     sim_layout->addWidget(stop_mis_button_);
 
+    // create the disarm button
+    QHBoxLayout *disarm_layout = new QHBoxLayout;
+    disarm_button_ = new QPushButton("&Disarm all", this);
+    disarm_button_->setDisabled(false);
+    disarm_layout->addWidget(disarm_button_);
 
     // Lay out the topic field above the control widget.
     QVBoxLayout *layout = new QVBoxLayout;
-    layout->addLayout(sim_layout);
-    layout->addLayout(mission_layout);
-    layout->addLayout(robot_num_layout);
     layout->addLayout(robot_1_layout);
     layout->addLayout(robot_2_layout);
     layout->addLayout(robot_3_layout);
+    layout->addLayout(robot_num_layout);
     layout->addLayout(init_topic_layout);
+    layout->addLayout(status_layout);
+    layout->addLayout(sim_layout);
+    layout->addLayout(mission_layout);
+    layout->addLayout(disarm_layout);
     setLayout(layout);
 
     // Create a timer for sending the output.  
@@ -103,37 +114,90 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
 
     connect(init_topic_button_, &QPushButton::clicked, this, [this]() {
         UpdateTopic()
+
+    connect(stop_mis_button_, &QPushButton::clicked, this, [this]() {
+        this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_LAND);
+        mode = Mode::STOPPED;
     });
 
+    connect(disarm_button_, &QPushButton::clicked, this, [this]() {
+        this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_DISARMED);
+        mode = Mode::ALL_GROUNDED;
+    });
+
+    connect(output_timer, SIGNAL(timeout()), this, SLOT(timer_callback()));
+    // Start the main timer.
+    output_timer->start(100); // ms
+
+    // Create the node
+    node_ = std::make_shared<rclcpp::Node>("meSch_gui_node");
+    });
 }
 
 void meSchPanel::timer_callback() {
 
 
-  rclcpp::spin_some(node_);
+    rclcpp::spin_some(node_);
 
-  // check if the connection is still alive
-  rclcpp::Time now_ = node_->get_clock()->now();
-  const uint64_t status_timeout_ns = 1e9;
-  if (now_.nanoseconds() - last_timestamp_commander_status_ >
-      status_timeout_ns) {
-    // set publish to false
-    setpoint_pub->setChecked(false);
-    // set status to comms lost
-    arm_button_->setDisabled(true);
-    offboard_button_->setDisabled(true);
-    land_button_->setDisabled(false);
-    disarm_button_->setDisabled(false);
-    status_label_->setText("state: COMMS_LOST");
-  }
+    // check if the connection is still alive
+    rclcpp::Time now_ = node_->get_clock()->now();
+    const uint64_t status_timeout_ns = 1e9;
+    if (now_.nanoseconds() - last_timestamp_commander_status_ >
+        status_timeout_ns) {
 
-  // If the eware_mission_status_pub_ is NULL, it means that publisher has not been properly initialized 
-  if (!(rclcpp::ok() && eware_mission_status_pub_ != NULL)) {
-    return;
-  }
+        // set status to comms lost
+        start_mis_button_->setDisabled(true);
+        status_label_->setText("state: COMMS_LOST");
+    }
 
-  // if pressed grounded (land immediately)
-  if (mode == Mode::GROUNDED || mode == Mode::HOVERING) {
+    // If the eware_mission_status_pub_ is NULL, it means that publisher has not been properly initialized 
+    if (!(rclcpp::ok() && eware_mission_status_pub_ != NULL)) {
+        return;
+    }
+
+    // If Topics initialized -> enable the start mission button
+    if (mode == Mode::TOPICS_INIT){
+        if (robot_num_int_ == 2){
+            if (robot_1_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD
+                && robot_2_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD){
+                // change the mode to offboard
+                mode == Mode::ALL_OFFBOARD
+
+                // Enable the mission button
+                start_mis_button_->setDisabled(false)
+            }
+        }else if (robot_num_int_ == 3){
+            if (robot_1_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD
+                && robot_2_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD
+                && robot_3_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD){
+                // change the mode to offboard
+                mode == Mode::ALL_OFFBOARD
+
+                // Enable the mission button
+                start_mis_button_->setDisabled(false)
+            }        
+        }
+    }
+
+    if (mode == Mode::ALL_OFFBOARD){
+        this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_LAND)
+    }
+
+
+
+
+
+
+
+  // If topics updated and all robot_commander_state == true 
+  //    Activate Start mission button
+
+  // if topics updated and all robot_commander_state == false
+  // if already in mission
+  //        Land all robots 
+
+  // if pressed ALL_GROUNDED (land immediately)
+  if (mode == Mode::ALL_GROUNDED || mode == Mode::HOVERING) {
       eware_mission_status_msg.mission_start = false;
       eware_mission_status_msg.mission_quit = false;
       eware_mission_status_pub_->publish(eware_mission_status_msg);  
@@ -291,8 +355,6 @@ void meSchPanel::ResetTopics(){
     }
 }
 
-
-
 void meSchPanel::robot_1_commander_status_cb(
     const px4_msgs::msg::CommanderStatus::SharedPtr msg) {
         
@@ -321,11 +383,13 @@ void meSchPanel::robot_3_commander_status_cb(
 }
 
 
-void meSchPanel::commander_set_state(uint8_t new_state) {
-  if (rclcpp::ok() && commander_set_state_pub_ != NULL) {
+void meSchPanel::all_commander_set_state(uint8_t new_state) {
+  if (rclcpp::ok() && mode == mode::ALL_OFFBOARD) {
     px4_msgs::msg::CommanderSetState msg;
     msg.new_state = new_state;
-    commander_set_state_pub_->publish(msg);
+    for (const auto &commander_set_state_pub_ : commander_set_state_pub_vec_){
+        commander_set_state_pub_->publish(msg);
+    }
   }
 }
 
