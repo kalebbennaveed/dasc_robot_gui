@@ -114,15 +114,26 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
 
     connect(init_topic_button_, &QPushButton::clicked, this, [this]() {
         UpdateTopic()
+        status_label_->setText("state: Topics Updated");
+        mode = Mode::TOPICS_INIT
+    });
 
     connect(start_sim_button_, &QPushButton::clicked, this, [this]() {
         mode = Mode::SIMSTART;
+        start_mis_button_->setDisabled(true);
     });
 
     connect(stop_sim_button_, &QPushButton::clicked, this, [this]() {
         this->commander_set_state(px4_msgs::msg::CommanderSetState::STATE_DISARMED);
         mode = Mode::STOPPED;
+        start_mis_button_->setDisabled(false);
     });
+
+    connect(start_mis_button_, &QPushButton::clicked, this, [this]() {
+        mode = Mode::STARTED;
+        start_mis_button_->setDisabled(true); // Disable the mission start button
+    });
+
 
     connect(stop_mis_button_, &QPushButton::clicked, this, [this]() {
         this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_LAND);
@@ -132,6 +143,7 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
     connect(disarm_button_, &QPushButton::clicked, this, [this]() {
         this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_DISARMED);
         mode = Mode::GROUNDED;
+        status_label_ = new QLabel("status: Fill name -> num (at least 2) -> init");
     });
 
     connect(output_timer, SIGNAL(timeout()), this, SLOT(timer_callback()));
@@ -140,7 +152,6 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
 
     // Create the node
     node_ = std::make_shared<rclcpp::Node>("meSch_gui_node");
-    });
 }
 
 void meSchPanel::timer_callback() {
@@ -160,7 +171,7 @@ void meSchPanel::timer_callback() {
     }
 
     // If the eware_mission_status_pub_ is NULL, it means that publisher has not been properly initialized 
-    if (!(rclcpp::ok() && eware_mission_status_pub_ != NULL)) {
+    if (!(rclcpp::ok() && meSch_mission_status_pub_ != NULL)) {
         return;
     }
 
@@ -213,8 +224,8 @@ void meSchPanel::timer_callback() {
 
 
 
-  // if pressed GROUNDED OR just hovering at starting point then
-  if (mode == Mode::GROUNDED || mode == Mode::OFFBOARD) {
+  // if pressed INIT OR just hovering at starting point then
+  if (mode == Mode::TOPICS_INIT || mode == Mode::OFFBOARD) {
       mesch_mission_status_msg.mission_start = false;
       mesch_mission_status_msg.mission_quit = false;
       eware_mission_status_pub_->publish(mesch_mission_status_msg);  
@@ -257,6 +268,9 @@ void meSchPanel::UpdateRobotNumber(){
     // Store as an int
     robot_num_int_ = robot_num_.toInt());
 
+    // Clear the old names
+    robot_names_.clear()
+
     if (robot_num_int_ == 2){
         robot_names_.append(robot_1_name_)
         robot_names_.append(robot_2_name_)
@@ -276,13 +290,21 @@ void meSchPanel::UpdateTopic(){
     if (!robot_names_.empty()){
         
         // For Publihers 
+
+        // Mission status pub
+        meSch_mission_status_pub_ = node_->create_publisher<dasc_msgs::msg::MeschMissionStatus>(
+            output_topic_.toStdString() + "/gs/mesch_mission_status", 1);
+
+        // Clear the vector
+        commander_set_state_pub_vec_.clear()
+
         for (const QString &topic_name_ : robot_names_){
 
             commander_set_state_pub_ =
                 node_->create_publisher<px4_msgs::msg::CommanderSetState>(
                     topic_name_.toStdString() + "/fmu/in/commander_set_state", 1);
 
-            commander_status_sub_vec_.append(commander_set_state_pub_)
+            commander_set_state_pub_vec_.append(commander_set_state_pub_)
         }
 
         // For Subscribers
@@ -308,7 +330,7 @@ void meSchPanel::UpdateTopic(){
                     new_topic, qos,
                     std::bind(&meSchPanel::robot_2_commander_status_cb, this, _1));
 
-            } else if (robot_num_int_ == 3){
+        } else if (robot_num_int_ == 3){
                 // First robot sub
                 auto new_topic = robot_names_[0].toStdString() + "/fmu/out/commander_status";
                 std::cout << "Subscribing to: " << new_topic << std::endl;
@@ -332,8 +354,8 @@ void meSchPanel::UpdateTopic(){
                     node_->create_subscription<px4_msgs::msg::CommanderStatus>(
                         new_topic, qos,
                         std::bind(&meSchPanel::robot_3_commander_status_cb, this, _1));                
-                }
         }
+    }
 
     // rviz_common::Panel defines the configChanged() signal.  Emitting it
     // tells RViz that something in this panel has changed that will
@@ -343,8 +365,6 @@ void meSchPanel::UpdateTopic(){
     // to show in the window's title bar indicating unsaved changes.
     Q_EMIT configChanged();
 
-    }
-
 }
 
 
@@ -353,8 +373,8 @@ void meSchPanel::ResetTopics(){
     // Reset the topics if they are already not null
 
     // Mission status pub
-    if (eware_mission_status_pub_ != NULL) {
-    eware_mission_status_pub_.reset();
+    if (meSch_mission_status_pub_ != NULL) {
+    meSch_mission_status_pub_.reset();
     }    
 
     // Commander set state pub for each robot
@@ -364,12 +384,6 @@ void meSchPanel::ResetTopics(){
         }
     }
 
-    // Commander status sub for each robot
-    if (!commander_status_sub_vec_.empty()){
-        for (const auto &commander_status_sub_ : commander_status_sub_vec_){
-            commander_status_sub_.reset();
-        }
-    }
 }
 
 void meSchPanel::robot_1_commander_status_cb(
