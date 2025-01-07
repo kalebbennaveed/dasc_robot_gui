@@ -14,10 +14,6 @@
 // 7. (Callback) if land all pressed then move all the robots to the landing mode
 // 8. Also allow comman disarming 
 
-
-
-
-
 #ifndef MESCH_PANEL_HPP_
 #define MESCH_PANEL_HPP_
 
@@ -86,72 +82,46 @@ public Q_SLOTS:
     // (it is called directly), but it is easy to define it as a public
     // slot instead of a private function in case it would be useful to
     // some other user.
-    void setTopic(const QString &topic);
+    // void setTopic(const QString &topic);
 
     // Here we declare some internal slots.
 
 protected Q_SLOTS:
-    void commander_set_state(uint8_t new_state);
+    
 
     // updateTopic() reads the topic name from the QLineEdit and calls
     // setTopic() with the result.
-    void updateTopic();
+    void timer_callback();
+
+    void UpdateRobot1Name();
+    void UpdateRobot2Name();
+    void UpdateRobot3Name();
+    void UpdateRobotNumber();
+
+    void UpdateTopic();
+    void ResetTopics();
 
     void timer_callback();
     void setpoint_pub_timer_callback();
     void parameter_req(bool set);
 
-    void trajectory_setpoint_cb(
-        const px4_msgs::msg::TrajectorySetpoint::SharedPtr msg) const;
+    void robot_1_commander_status_cb(const px4_msgs::msg::CommanderStatus::SharedPtr msg);
+    void robot_2_commander_status_cb(const px4_msgs::msg::CommanderStatus::SharedPtr msg);
+    void robot_3_commander_status_cb(const px4_msgs::msg::CommanderStatus::SharedPtr msg);
 
-    void vehicle_local_pos_cb(
-        const px4_msgs::msg::VehicleLocalPosition::SharedPtr msg) const;
+    void all_commander_set_state(uint8_t new_state);
 
-    void commander_status_cb(const px4_msgs::msg::CommanderStatus::SharedPtr msg);
-
-    void vehicle_visual_odometry_cb(
-        const px4_msgs::msg::VehicleOdometry::SharedPtr msg) const;
-
-    void parameter_res_cb(const px4_msgs::msg::ParameterRes::SharedPtr msg) const;
-
-    void
-    battery_status_cb(const px4_msgs::msg::SimpleBatteryStatus::SharedPtr msg) const;
-
-    void reset();
 
     // Then we finish up with protected member variables.
 
 protected:
     // One-line text editor for entering the outgoing ROS topic name.
-    QLineEdit *output_topic_editor_;
-    QLabel *battery_status_label_;
+    QLineEdit *robot_1_editor_, *robot_2_editor_, *robot_3_editor_, *robot_num_editor_;
 
-    // Setpoint
-    QDoubleSpinBox *setpoint_x, *setpoint_y, *setpoint_z, *setpoint_yaw;
-    QLabel *setpoint_x_disp, *setpoint_y_disp, *setpoint_z_disp,
-        *setpoint_yaw_disp;
-    QCheckBox *setpoint_pub;
-    QTimer *setpoint_pub_timer_;
-
-    // EKF:
-    QLabel *ekf_x, *ekf_y, *ekf_z, *ekf_yaw, *ekf_valid;
-
-    // Mocap:
-    QLabel *mocap_x, *mocap_y, *mocap_z, *mocap_yaw, *mocap_valid;
 
     // Status:
     QLabel *status_label_;
-    QPushButton *arm_button_, *start_button_, *offboard_button_, *land_button_, *disarm_button_, *start_sim_button_, *stop_sim_button_;
-
-    // Param:
-    QLineEdit *param_name_, *param_set_;
-    QLabel *param_get_label_;
-    QPushButton *param_get_button_, *param_set_button_;
-
-    // Raw mode cmd:
-    QSpinBox *motor_num;
-    QDoubleSpinBox *motor_cmd;
-    QCheckBox *raw_mode;
+    QPushButton *init_topic_button_, *start_sim_button_, *stop_sim_button_, *start_mis_button_, *stop_mis_button_, *disarm_button_;
 
     // The current name of the output topic.
     QString robot_num_, robot_1_name_, robot_2_name_, robot_3_name_;
@@ -164,17 +134,15 @@ protected:
     rclcpp::Publisher<px4_msgs::msg::CommanderSetState>::SharedPtr commander_set_state_pub_; // Shared variable for defining this pub
     rclcpp::Subscription<px4_msgs::msg::CommanderStatus>::SharedPtr commander_status_sub_;    // Shared variable for defining this sub
     std::vector<rclcpp::Publisher<px4_msgs::msg::CommanderSetState>::SharedPtr> commander_set_state_pub_vec_;
-    std::vector<rclcpp::Publisher<px4_msgs::msg::CommanderStatus>::SharedPtr> commander_status_sub_vec_;
-
         
     uint64_t last_timestamp_commander_status_ = 0;
     int robot_num_int_;
     uint8_t robot_1_commander_status_, robot_2_commander_status_, robot_3_commander_status_;
 
-    enum Mode {ALL_GROUNDED, TOPICS_INIT, ALL_OFFBOARD, ALL_STOPPED, STARTED, SIMSTART};
+    enum Mode {GROUNDED, TOPICS_INIT, OFFBOARD, STOPPED, STARTED, SIMSTART};
 
-    Mode mode = ALL_GROUNDED;
-    dasc_msgs::msg::meSchMissionStatus meSch_mission_status_msg;
+    Mode mode = GROUNDED;
+    dasc_msgs::msg::MeschMissionStatus meSch_mission_status_msg;
 };
 
 } // end namespace dasc_robot_gui
