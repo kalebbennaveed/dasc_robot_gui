@@ -101,10 +101,6 @@ protected Q_SLOTS:
     void UpdateTopic();
     void ResetTopics();
 
-    void timer_callback();
-    void setpoint_pub_timer_callback();
-    void parameter_req(bool set);
-
     void robot_1_commander_status_cb(const px4_msgs::msg::CommanderStatus::SharedPtr msg);
     void robot_2_commander_status_cb(const px4_msgs::msg::CommanderStatus::SharedPtr msg);
     void robot_3_commander_status_cb(const px4_msgs::msg::CommanderStatus::SharedPtr msg);

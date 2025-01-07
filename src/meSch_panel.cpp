@@ -27,12 +27,6 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
     robot_1_editor_ = new QLineEdit;
     robot_1_layout->addWidget(robot_1_editor_);  
 
-
-//   QHBoxLayout *topic_layout = new QHBoxLayout;
-//   topic_layout->addWidget(new QLabel("Robot Namespace:"));
-//   output_topic_editor_ = new QLineEdit;
-//   topic_layout->addWidget(output_topic_editor_);
-
     // Robot 2 name
     QHBoxLayout *robot_2_layout = new QHBoxLayout;
     robot_2_layout->addWidget(new QLabel("Robot 2 Name:"));
@@ -118,7 +112,7 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
 
 
     connect(init_topic_button_, &QPushButton::clicked, this, [this]() {
-        UpdateTopic()
+        UpdateTopic();
         status_label_->setText("state: Topics Updated");
         mode = Mode::TOPICS_INIT;
     });
@@ -192,17 +186,17 @@ void meSchPanel::timer_callback() {
             if (robot_1_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD
                 && robot_2_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD){
                 // change the mode to offboard
-                mode == Mode::OFFBOARD;
+                mode = Mode::OFFBOARD;
 
                 // Enable the mission button
-                start_mis_button_->setDisabled(false)
+                start_mis_button_->setDisabled(false);
             }
         }else if (robot_num_int_ == 3){
             if (robot_1_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD
                 && robot_2_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD
                 && robot_3_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD){
                 // change the mode to offboard
-                mode == Mode::OFFBOARD;
+                mode = Mode::OFFBOARD;
 
                 // Enable the mission button
                 start_mis_button_->setDisabled(false);
@@ -237,25 +231,25 @@ void meSchPanel::timer_callback() {
 
   // if pressed INIT OR just hovering at starting point then
   if (mode == Mode::TOPICS_INIT || mode == Mode::OFFBOARD) {
-      mesch_mission_status_msg.mission_start = false;
-      mesch_mission_status_msg.mission_quit = false;
-      mesch_mission_status_pub->publish(mesch_mission_status_msg);  
+      meSch_mission_status_msg.mission_start = false;
+      meSch_mission_status_msg.mission_quit = false;
+      meSch_mission_status_pub_->publish(meSch_mission_status_msg);  
     return;
   }
 
   // Start the mission
   if (mode == Mode::STARTED || mode == Mode::SIMSTART) {
-    mesch_mission_status_msg.mission_start = true;
-    mesch_mission_status_msg.mission_quit = false;
-    mesch_mission_status_pub->publish(mesch_mission_status_msg);
+    meSch_mission_status_msg.mission_start = true;
+    meSch_mission_status_msg.mission_quit = false;
+    meSch_mission_status_pub_->publish(meSch_mission_status_msg);
     return;
   }
 
   // Stop the mission and land immediately
   if (mode == Mode::STOPPED) {
-    mesch_mission_status_msg.mission_start = false;
-    mesch_mission_status_msg.mission_quit = true;
-    mesch_mission_status_pub->publish(mesch_mission_status_msg);
+    meSch_mission_status_msg.mission_start = false;
+    meSch_mission_status_msg.mission_quit = true;
+    meSch_mission_status_pub_->publish(meSch_mission_status_msg);
     return;
   }
 
@@ -277,18 +271,18 @@ void meSchPanel::UpdateRobotNumber(){
     robot_num_ = robot_num_editor_->text();
     
     // Store as an int
-    robot_num_int_ = robot_num_.toInt());
+    robot_num_int_ = robot_num_.toInt();
 
     // Clear the old names
-    robot_names_.clear()
+    robot_names_.clear();
 
     if (robot_num_int_ == 2){
-        robot_names_.append(robot_1_name_);
-        robot_names_.append(robot_2_name_);
+        robot_names_.push_back(robot_1_name_);
+        robot_names_.push_back(robot_2_name_);
     } else if (robot_num_int_ == 3) {
-        robot_names_.append(robot_1_name_);
-        robot_names_.append(robot_2_name_);
-        robot_names_.append(robot_3_name_);       
+        robot_names_.push_back(robot_1_name_);
+        robot_names_.push_back(robot_2_name_);
+        robot_names_.push_back(robot_3_name_);       
     }
 }
 
@@ -304,7 +298,7 @@ void meSchPanel::UpdateTopic(){
 
         // Mission status pub
         meSch_mission_status_pub_ = node_->create_publisher<dasc_msgs::msg::MeschMissionStatus>(
-            output_topic_.toStdString() + "/gs/mesch_mission_status", 1);
+            "/px4/gs/mesch_mission_status", 1);
 
         // Clear the vector
         commander_set_state_pub_vec_.clear();
@@ -315,7 +309,7 @@ void meSchPanel::UpdateTopic(){
                 node_->create_publisher<px4_msgs::msg::CommanderSetState>(
                     topic_name_.toStdString() + "/fmu/in/commander_set_state", 1);
 
-            commander_set_state_pub_vec_.append(commander_set_state_pub_);
+            commander_set_state_pub_vec_.push_back(commander_set_state_pub_);
         }
 
         // For Subscribers
@@ -390,7 +384,7 @@ void meSchPanel::ResetTopics(){
 
     // Commander set state pub for each robot
     if (!commander_set_state_pub_vec_.empty()){
-        for (const auto &commander_set_state_pub_ : commander_set_state_pub_vec_){
+        for (auto &commander_set_state_pub_ : commander_set_state_pub_vec_){
             commander_set_state_pub_.reset();
         }
     }
@@ -426,10 +420,10 @@ void meSchPanel::robot_3_commander_status_cb(
 
 
 void meSchPanel::all_commander_set_state(uint8_t new_state) {
-  if (rclcpp::ok() && mode == mode::OFFBOARD) {
+  if (rclcpp::ok() && mode == Mode::OFFBOARD) {
     px4_msgs::msg::CommanderSetState msg;
     msg.new_state = new_state;
-    for (const auto &commander_set_state_pub_ : commander_set_state_pub_vec_){
+    for (auto &commander_set_state_pub_ : commander_set_state_pub_vec_){
         commander_set_state_pub_->publish(msg);
     }
   }
