@@ -54,7 +54,9 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
     // state labels
     QHBoxLayout *status_layout = new QHBoxLayout;
     status_label_ = new QLabel("status: Fill name -> num (at least 2) -> init");
+    mode_label_ = new QLabel("mode");
     status_layout->addWidget(status_label_);
+    status_layout->addWidget(mode_label_);
 
     // create the mission preview buttons
     QHBoxLayout *sim_layout = new QHBoxLayout;
@@ -134,7 +136,6 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
         start_sim_button_->setDisabled(true); //
         stop_sim_button_->setDisabled(true);
     });
-
 
     connect(stop_mis_button_, &QPushButton::clicked, this, [this]() {
         this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_LAND);
@@ -296,12 +297,31 @@ void meSchPanel::UpdateTopic(){
         
         // For Publihers 
 
-        // Mission status pub
-        meSch_mission_status_pub_ = node_->create_publisher<dasc_msgs::msg::MeschMissionStatus>(
-            "/px4/gs/mesch_mission_status", 1);
+        // // Mission status pub
+        // meSch_mission_status_pub_ = node_->create_publisher<dasc_msgs::msg::MeschMissionStatus>(
+        //     "/px4/gs/mesch_mission_status", 1);
+
+
+        // // create publishers
+        // robot1_commander_set_state_pub_ =
+        //     node_->create_publisher<px4_msgs::msg::CommanderSetState>(
+        //         robot_names_[0].toStdString() + "/fmu/in/commander_set_state", 1);
+
+        // robot2_commander_set_state_pub_ =
+        //     node_->create_publisher<px4_msgs::msg::CommanderSetState>(
+        //         robot_names_[1].toStdString() + "/fmu/in/commander_set_state", 1);
+
+        // if (robot_num_int_ == 3) {
+        //     robot3_commander_set_state_pub_ =
+        //         node_->create_publisher<px4_msgs::msg::CommanderSetState>(
+        //             robot_names_[2].toStdString() + "/fmu/in/commander_set_state", 1);
+        // }
+
 
         // Clear the vector
         commander_set_state_pub_vec_.clear();
+
+
 
         for (const QString &topic_name_ : robot_names_){
 
@@ -389,6 +409,21 @@ void meSchPanel::ResetTopics(){
         }
     }
 
+    // // Mission status pub
+    // if (robot1_commander_set_state_pub_ != NULL) {
+    // robot1_commander_set_state_pub_.reset();
+    // }    
+
+    // // Mission status pub
+    // if (robot2_commander_set_state_pub_ != NULL) {
+    // robot2_commander_set_state_pub_.reset();
+    // }  
+
+    // if (robot_num_int_ == 3) {
+    //     if (robot3_commander_set_state_pub_ != NULL) {
+    //         robot3_commander_set_state_pub_.reset();
+    //     } 
+    // }
 }
 
 void meSchPanel::robot_1_commander_status_cb(

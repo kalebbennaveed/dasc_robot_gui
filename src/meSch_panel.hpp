@@ -116,7 +116,7 @@ protected:
 
 
     // Status:
-    QLabel *status_label_;
+    QLabel *status_label_, *mode_label_;
     QPushButton *init_topic_button_, *start_sim_button_, *stop_sim_button_, *start_mis_button_, *stop_mis_button_, *disarm_button_;
 
     // The current name of the output topic.
