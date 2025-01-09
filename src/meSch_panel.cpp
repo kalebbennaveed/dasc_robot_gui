@@ -117,21 +117,25 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
         UpdateTopic();
         status_label_->setText("state: Topics Updated");
         mode = Mode::TOPICS_INIT;
+        mode_label_->setText("mode: TOPICS_INIT");
     });
 
     connect(start_sim_button_, &QPushButton::clicked, this, [this]() {
         mode = Mode::SIMSTART;
+        mode_label_->setText("mode: SIMSTART");
         start_mis_button_->setDisabled(true);
     });
 
     connect(stop_sim_button_, &QPushButton::clicked, this, [this]() {
         this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_DISARMED);
         mode = Mode::STOPPED;
+        mode_label_->setText("mode: STOPPED");
         start_mis_button_->setDisabled(false);
     });
 
     connect(start_mis_button_, &QPushButton::clicked, this, [this]() {
         mode = Mode::STARTED;
+        mode_label_->setText("mode: STARTED");
         start_mis_button_->setDisabled(true); // Disable the mission start button
         start_sim_button_->setDisabled(true); //
         stop_sim_button_->setDisabled(true);
@@ -140,11 +144,13 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
     connect(stop_mis_button_, &QPushButton::clicked, this, [this]() {
         this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_LAND);
         mode = Mode::STOPPED;
+        mode_label_->setText("mode: STOPPED");
     });
 
     connect(disarm_button_, &QPushButton::clicked, this, [this]() {
         this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_DISARMED);
         mode = Mode::GROUNDED;
+        mode_label_->setText("mode: GROUNDED");
         status_label_ = new QLabel("status: Fill name -> num (at least 2) -> init");
         start_mis_button_->setDisabled(true); // Disable the mission start button
         stop_mis_button_->setDisabled(false);
@@ -188,6 +194,7 @@ void meSchPanel::timer_callback() {
                 && robot_2_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD){
                 // change the mode to offboard
                 mode = Mode::OFFBOARD;
+                mode_label_->setText("mode: OFFBOARD");
 
                 // Enable the mission button
                 start_mis_button_->setDisabled(false);
@@ -198,7 +205,7 @@ void meSchPanel::timer_callback() {
                 && robot_3_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD){
                 // change the mode to offboard
                 mode = Mode::OFFBOARD;
-
+                mode_label_->setText("mode: OFFBOARD");
                 // Enable the mission button
                 start_mis_button_->setDisabled(false);
             }        
@@ -213,6 +220,7 @@ void meSchPanel::timer_callback() {
                 // land all
                 this->all_commander_set_state(px4_msgs::msg::CommanderSetState::STATE_LAND);
                 mode = Mode::STOPPED;
+                mode_label_->setText("mode: STOPPED");
                 start_mis_button_->setDisabled(true);
             }
         }else if (robot_num_int_ == 3){
