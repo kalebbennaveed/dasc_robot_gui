@@ -319,40 +319,40 @@ void meSchPanel::UpdateTopic(){
         
         // For Publihers 
 
-        // // Mission status pub
-        // meSch_mission_status_pub_ = node_->create_publisher<dasc_msgs::msg::MeschMissionStatus>(
-        //     "/px4/gs/mesch_mission_status", 1);
+        // Mission status pub
+        meSch_mission_status_pub_ = node_->create_publisher<dasc_msgs::msg::MeschMissionStatus>(
+            "/px4/gs/mesch_mission_status", 1);
 
 
-        // // create publishers
-        // robot1_commander_set_state_pub_ =
-        //     node_->create_publisher<px4_msgs::msg::CommanderSetState>(
-        //         robot_names_[0].toStdString() + "/fmu/in/commander_set_state", 1);
+        // create publishers
+        r1_commander_set_state_pub_ =
+            node_->create_publisher<px4_msgs::msg::CommanderSetState>(
+                robot_names_[0].toStdString() + "/fmu/in/commander_set_state", 1);
 
-        // robot2_commander_set_state_pub_ =
-        //     node_->create_publisher<px4_msgs::msg::CommanderSetState>(
-        //         robot_names_[1].toStdString() + "/fmu/in/commander_set_state", 1);
+        r2_commander_set_state_pub_ =
+            node_->create_publisher<px4_msgs::msg::CommanderSetState>(
+                robot_names_[1].toStdString() + "/fmu/in/commander_set_state", 1);
 
-        // if (robot_num_int_ == 3) {
-        //     robot3_commander_set_state_pub_ =
-        //         node_->create_publisher<px4_msgs::msg::CommanderSetState>(
-        //             robot_names_[2].toStdString() + "/fmu/in/commander_set_state", 1);
-        // }
-
-
-        // Clear the vector
-        commander_set_state_pub_vec_.clear();
-
-
-
-        for (const QString &topic_name_ : robot_names_){
-
-            commander_set_state_pub_ =
+        if (robot_num_int_ == 3) {
+            r3_commander_set_state_pub_ =
                 node_->create_publisher<px4_msgs::msg::CommanderSetState>(
-                    topic_name_.toStdString() + "/fmu/in/commander_set_state", 1);
-
-            commander_set_state_pub_vec_.push_back(commander_set_state_pub_);
+                    robot_names_[2].toStdString() + "/fmu/in/commander_set_state", 1);
         }
+
+
+        // // Clear the vector
+        // commander_set_state_pub_vec_.clear();
+
+
+
+        // for (const QString &topic_name_ : robot_names_){
+
+        //     commander_set_state_pub_ =
+        //         node_->create_publisher<px4_msgs::msg::CommanderSetState>(
+        //             topic_name_.toStdString() + "/fmu/in/commander_set_state", 1);
+
+        //     commander_set_state_pub_vec_.push_back(commander_set_state_pub_);
+        // }
 
         // For Subscribers
         rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
@@ -424,28 +424,28 @@ void meSchPanel::ResetTopics(){
     meSch_mission_status_pub_.reset();
     }    
 
-    // Commander set state pub for each robot
-    if (!commander_set_state_pub_vec_.empty()){
-        for (auto &commander_set_state_pub_ : commander_set_state_pub_vec_){
-            commander_set_state_pub_.reset();
-        }
-    }
-
-    // // Mission status pub
-    // if (robot1_commander_set_state_pub_ != NULL) {
-    // robot1_commander_set_state_pub_.reset();
-    // }    
-
-    // // Mission status pub
-    // if (robot2_commander_set_state_pub_ != NULL) {
-    // robot2_commander_set_state_pub_.reset();
-    // }  
-
-    // if (robot_num_int_ == 3) {
-    //     if (robot3_commander_set_state_pub_ != NULL) {
-    //         robot3_commander_set_state_pub_.reset();
-    //     } 
+    // // Commander set state pub for each robot
+    // if (!commander_set_state_pub_vec_.empty()){
+    //     for (auto &commander_set_state_pub_ : commander_set_state_pub_vec_){
+    //         commander_set_state_pub_.reset();
+    //     }
     // }
+
+    // Mission status pub
+    if (r1_commander_set_state_pub_ != NULL) {
+    r1_commander_set_state_pub_.reset();
+    }    
+
+    // Mission status pub
+    if (r2_commander_set_state_pub_ != NULL) {
+    r2_commander_set_state_pub_.reset();
+    }  
+
+    if (robot_num_int_ == 3) {
+        if (r3_commander_set_state_pub_ != NULL) {
+            r3_commander_set_state_pub_.reset();
+        } 
+    }
 }
 
 void meSchPanel::robot_1_commander_status_cb(
@@ -534,15 +534,17 @@ void meSchPanel::robot_3_commander_status_cb(
     } 
 }
 
-
+// Fix this one 
 void meSchPanel::all_commander_set_state(uint8_t new_state) {
-  if (rclcpp::ok() && mode == Mode::OFFBOARD) {
+
+    // Disarm all robots 
     px4_msgs::msg::CommanderSetState msg;
     msg.new_state = new_state;
-    for (auto &commander_set_state_pub_ : commander_set_state_pub_vec_){
-        commander_set_state_pub_->publish(msg);
-    }
-  }
+
+    r1_commander_set_state_pub_->publish(msg);
+    r2_commander_set_state_pub_->publish(msg);
+    r3_commander_set_state_pub_->publish(msg);
+
 }
 
 // Save all configuration data from this panel to the given

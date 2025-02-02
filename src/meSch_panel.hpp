@@ -127,7 +127,7 @@ protected:
     std::shared_ptr<rclcpp::Node> node_;
 
     rclcpp::Publisher<dasc_msgs::msg::MeschMissionStatus>::SharedPtr meSch_mission_status_pub_;
-    rclcpp::Publisher<px4_msgs::msg::CommanderSetState>::SharedPtr commander_set_state_pub_; // Shared variable for defining this pub
+    rclcpp::Publisher<px4_msgs::msg::CommanderSetState>::SharedPtr r1_commander_set_state_pub_, r2_commander_set_state_pub_, r3_commander_set_state_pub_; // Shared variable for defining this pub
     rclcpp::Subscription<px4_msgs::msg::CommanderStatus>::SharedPtr r1_commander_status_sub_, r2_commander_status_sub_, r3_commander_status_sub_;    // Shared variable for defining this sub
     std::vector<rclcpp::Publisher<px4_msgs::msg::CommanderSetState>::SharedPtr> commander_set_state_pub_vec_;
         
