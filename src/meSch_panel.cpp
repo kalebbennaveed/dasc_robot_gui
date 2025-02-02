@@ -53,10 +53,19 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
 
     // state labels
     QHBoxLayout *status_layout = new QHBoxLayout;
-    status_label_ = new QLabel("status: Fill name -> num (at least 2) -> init");
+    status_label_ = new QLabel("Topics Not Initialized");
     mode_label_ = new QLabel("mode");
     status_layout->addWidget(status_label_);
     status_layout->addWidget(mode_label_);
+
+    // commander status labels
+    QHBoxLayout *commander_layout = new QHBoxLayout;
+    px4_100_state_ = new QLabel("px4_100 status: NA");
+    px4_101_state_ = new QLabel("px4_101 status: NA");
+    px4_102_state_ = new QLabel("px4_102 status: NA");
+    commander_layout->addWidget(px4_100_state_);
+    commander_layout->addWidget(px4_101_state_);
+    commander_layout->addWidget(px4_102_state_);
 
     // create the mission preview buttons
     QHBoxLayout *sim_layout = new QHBoxLayout;
@@ -91,6 +100,7 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
     layout->addLayout(robot_num_layout);
     layout->addLayout(init_topic_layout);
     layout->addLayout(status_layout);
+    layout->addLayout(commander_layout);
     layout->addLayout(sim_layout);
     layout->addLayout(mission_layout);
     layout->addLayout(disarm_layout);
@@ -115,7 +125,8 @@ meSchPanel::meSchPanel(QWidget *parent) : rviz_common::Panel(parent) {
 
     connect(init_topic_button_, &QPushButton::clicked, this, [this]() {
         UpdateTopic();
-        status_label_->setText("state: Topics Updated");
+        status_label_->setText("Topics Initialized");
+        status_label_->setStyleSheet("QLabel { color : green; }");
         mode = Mode::TOPICS_INIT;
         mode_label_->setText("mode: TOPICS_INIT");
     });
@@ -179,9 +190,12 @@ void meSchPanel::timer_callback() {
         status_timeout_ns) {
 
         // set status to comms lost
+
+        // If the communication is lost; set init_topics to disabled
         start_mis_button_->setDisabled(true);
-        status_label_->setText("state: COMMS_LOST");
+        return;
     }
+
 
     if (!(rclcpp::ok() && meSch_mission_status_pub_ != NULL)) {
         return;
@@ -350,7 +364,7 @@ void meSchPanel::UpdateTopic(){
             // First robot sub
             auto new_topic = robot_names_[0].toStdString() + "/fmu/out/commander_status";
             std::cout << "Subscribing to: " << new_topic << std::endl;
-            commander_status_sub_ =
+            r1_commander_status_sub_ =
                 node_->create_subscription<px4_msgs::msg::CommanderStatus>(
                     new_topic, qos,
                     std::bind(&meSchPanel::robot_1_commander_status_cb, this, _1));
@@ -358,34 +372,34 @@ void meSchPanel::UpdateTopic(){
             // Second robot sub
             new_topic = robot_names_[1].toStdString() + "/fmu/out/commander_status";
             std::cout << "Subscribing to: " << new_topic << std::endl;
-            commander_status_sub_ =
+            r2_commander_status_sub_ =
                 node_->create_subscription<px4_msgs::msg::CommanderStatus>(
                     new_topic, qos,
                     std::bind(&meSchPanel::robot_2_commander_status_cb, this, _1));
 
         } else if (robot_num_int_ == 3){
                 // First robot sub
-                auto new_topic = robot_names_[0].toStdString() + "/fmu/out/commander_status";
-                std::cout << "Subscribing to: " << new_topic << std::endl;
-                commander_status_sub_ =
+                auto r1_new_topic = robot_names_[0].toStdString() + "/fmu/out/commander_status";
+                std::cout << "Subscribing to: " << r1_new_topic << std::endl;
+                r1_commander_status_sub_ =
                     node_->create_subscription<px4_msgs::msg::CommanderStatus>(
-                        new_topic, qos,
+                        r1_new_topic, qos,
                         std::bind(&meSchPanel::robot_1_commander_status_cb, this, _1));
 
                 // Second robot sub
-                new_topic = robot_names_[1].toStdString() + "/fmu/out/commander_status";
-                std::cout << "Subscribing to: " << new_topic << std::endl;
-                commander_status_sub_ =
+                auto r2_new_topic = robot_names_[1].toStdString() + "/fmu/out/commander_status";
+                std::cout << "Subscribing to: " << r2_new_topic << std::endl;
+                r2_commander_status_sub_ =
                     node_->create_subscription<px4_msgs::msg::CommanderStatus>(
-                        new_topic, qos,
+                        r2_new_topic, qos,
                         std::bind(&meSchPanel::robot_2_commander_status_cb, this, _1));
                 
                 // Second robot sub
-                new_topic = robot_names_[2].toStdString() + "/fmu/out/commander_status";
-                std::cout << "Subscribing to: " << new_topic << std::endl;
-                commander_status_sub_ =
+                auto r3_new_topic = robot_names_[2].toStdString() + "/fmu/out/commander_status";
+                std::cout << "Subscribing to: " << r3_new_topic << std::endl;
+                r3_commander_status_sub_ =
                     node_->create_subscription<px4_msgs::msg::CommanderStatus>(
-                        new_topic, qos,
+                        r3_new_topic, qos,
                         std::bind(&meSchPanel::robot_3_commander_status_cb, this, _1));                
         }
     }
@@ -441,6 +455,27 @@ void meSchPanel::robot_1_commander_status_cb(
 
     // Store the robot 1 commander state 
     robot_1_commander_status_ = msg->state;
+    // px4_100_state_->setText("px4_100 status: " + QString::number(msg->state)); 
+
+    switch (msg->state) {
+
+    case px4_msgs::msg::CommanderStatus::STATE_DISARMED:
+        px4_100_state_->setText("px4_100 status: DISARMED");
+        return;
+    case px4_msgs::msg::CommanderStatus::STATE_ARMED:
+        px4_100_state_->setText("px4_100 status: ARMED");
+        return;
+    case px4_msgs::msg::CommanderStatus::STATE_OFFBOARD:
+        px4_100_state_->setText("px4_100 status: OFFBOARD");
+        return;
+    case px4_msgs::msg::CommanderStatus::STATE_LAND:
+        px4_100_state_->setText("px4_100 status: LAND");
+        return;
+    default:
+        return;
+    }
+
+
 }
 
 void meSchPanel::robot_2_commander_status_cb(
@@ -450,6 +485,25 @@ void meSchPanel::robot_2_commander_status_cb(
 
     // Store the robot 1 commander state 
     robot_2_commander_status_ = msg->state;
+    // px4_101_state_->setText("px4_101 status: " + QString::number(msg->state));
+
+    switch (msg->state) {
+
+    case px4_msgs::msg::CommanderStatus::STATE_DISARMED:
+        px4_101_state_->setText("px4_101 status: DISARMED");
+        return;
+    case px4_msgs::msg::CommanderStatus::STATE_ARMED:
+        px4_101_state_->setText("px4_101 status: ARMED");
+        return;
+    case px4_msgs::msg::CommanderStatus::STATE_OFFBOARD:
+        px4_101_state_->setText("px4_101 status: OFFBOARD");
+        return;
+    case px4_msgs::msg::CommanderStatus::STATE_LAND:
+        px4_101_state_->setText("px4_101 status: LAND");
+        return;
+    default:
+        return;
+    } 
 }
 
 void meSchPanel::robot_3_commander_status_cb(
@@ -459,6 +513,25 @@ void meSchPanel::robot_3_commander_status_cb(
 
     // Store the robot 1 commander state 
     robot_3_commander_status_ = msg->state;
+    // px4_102_state_->setText("px4_102 status: " + QString::number(msg->state)); 
+
+    switch (msg->state) {
+
+    case px4_msgs::msg::CommanderStatus::STATE_DISARMED:
+        px4_102_state_->setText("px4_102 status: DISARMED");
+        return;
+    case px4_msgs::msg::CommanderStatus::STATE_ARMED:
+        px4_102_state_->setText("px4_102 status: ARMED");
+        return;
+    case px4_msgs::msg::CommanderStatus::STATE_OFFBOARD:
+        px4_102_state_->setText("px4_102 status: OFFBOARD");
+        return;
+    case px4_msgs::msg::CommanderStatus::STATE_LAND:
+        px4_102_state_->setText("px4_102 status: LAND");
+        return;
+    default:
+        return;
+    } 
 }
 
 

@@ -116,7 +116,7 @@ protected:
 
 
     // Status:
-    QLabel *status_label_, *mode_label_;
+    QLabel *status_label_, *mode_label_, *px4_100_state_, *px4_101_state_, *px4_102_state_;
     QPushButton *init_topic_button_, *start_sim_button_, *stop_sim_button_, *start_mis_button_, *stop_mis_button_, *disarm_button_;
 
     // The current name of the output topic.
@@ -128,7 +128,7 @@ protected:
 
     rclcpp::Publisher<dasc_msgs::msg::MeschMissionStatus>::SharedPtr meSch_mission_status_pub_;
     rclcpp::Publisher<px4_msgs::msg::CommanderSetState>::SharedPtr commander_set_state_pub_; // Shared variable for defining this pub
-    rclcpp::Subscription<px4_msgs::msg::CommanderStatus>::SharedPtr commander_status_sub_;    // Shared variable for defining this sub
+    rclcpp::Subscription<px4_msgs::msg::CommanderStatus>::SharedPtr r1_commander_status_sub_, r2_commander_status_sub_, r3_commander_status_sub_;    // Shared variable for defining this sub
     std::vector<rclcpp::Publisher<px4_msgs::msg::CommanderSetState>::SharedPtr> commander_set_state_pub_vec_;
         
     uint64_t last_timestamp_commander_status_ = 0;
@@ -138,6 +138,9 @@ protected:
     enum Mode {GROUNDED, TOPICS_INIT, OFFBOARD, STOPPED, STARTED, SIMSTART};
 
     Mode mode = GROUNDED;
+
+
+
     dasc_msgs::msg::MeschMissionStatus meSch_mission_status_msg;
 };
 
