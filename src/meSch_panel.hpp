@@ -99,6 +99,7 @@ protected Q_SLOTS:
     void UpdateRobotNumber();
 
     void UpdateTopic();
+    
     void ResetTopics();
 
     void robot_1_commander_status_cb(const px4_msgs::msg::CommanderStatus::SharedPtr msg);
@@ -106,6 +107,8 @@ protected Q_SLOTS:
     void robot_3_commander_status_cb(const px4_msgs::msg::CommanderStatus::SharedPtr msg);
 
     void all_commander_set_state(uint8_t new_state);
+    void ExecuteLanding(uint8_t new_state);
+    // Form the message
 
 
     // Then we finish up with protected member variables.
@@ -117,7 +120,7 @@ protected:
 
     // Status:
     QLabel *status_label_, *mode_label_, *px4_100_state_, *px4_101_state_, *px4_102_state_;
-    QPushButton *init_topic_button_, *start_sim_button_, *stop_sim_button_, *start_mis_button_, *stop_mis_button_, *disarm_button_;
+    QPushButton *init_topic_button_, *start_sim_button_, *stop_sim_button_, *start_mis_button_, *stop_mis_button_, *disarm_button_, *land_button_;
 
     // The current name of the output topic.
     QString robot_num_, robot_1_name_, robot_2_name_, robot_3_name_;
