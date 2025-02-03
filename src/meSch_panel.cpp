@@ -209,7 +209,7 @@ void meSchPanel::timer_callback() {
     }
 
     // If Topics initialized -> enable the start mission button
-    if (mode == Mode::TOPICS_INIT){
+    if (mode == Mode::TOPICS_INIT || mode == Mode::GROUNDED || mode == Mode::STOPPED){
         if (robot_num_int_ == 2){
             if (robot_1_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD
                 && robot_2_commander_status_ == px4_msgs::msg::CommanderStatus::STATE_OFFBOARD){
@@ -262,7 +262,7 @@ void meSchPanel::timer_callback() {
 
 
   // if pressed INIT OR just hovering at starting point then
-  if (mode == Mode::TOPICS_INIT || mode == Mode::OFFBOARD) {
+  if (mode == Mode::TOPICS_INIT || mode == Mode::OFFBOARD || mode == Mode::GROUNDED) {
       meSch_mission_status_msg.mission_start = false;
       meSch_mission_status_msg.mission_quit = false;
       meSch_mission_status_pub_->publish(meSch_mission_status_msg);  
